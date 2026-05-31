@@ -1,48 +1,92 @@
-# Supabase Login Audit App
+# Supabase Login Audit
 
-This is a small full stack Supabase assessment project.
+A full stack Supabase assessment project that implements Google login, records login events in Supabase Postgres, protects the data with RLS, uses an RPC function for inserts, and includes a Supabase Edge Function.
 
-It demonstrates:
+## Live Links
 
-- Google login using Supabase Auth
-- Supabase Postgres database storage
-- Row Level Security policies
-- Postgres RPC function
-- Supabase Edge Function/API deployment
-- Frontend table showing who logged in and when
+- Live app: https://supabase-login-audit.netlify.app/
+- GitHub repo: https://github.com/dhineshbuilder/supabase-login-audit
+- Supabase Edge Function health: https://hzppujksrtwktfmhjoqf.supabase.co/functions/v1/login-app/health
 
-## Project Flow
+## Screenshots
 
-```text
-User opens frontend URL
-  -> clicks Continue with Google
-  -> Supabase Auth handles OAuth
-  -> frontend receives the session
-  -> frontend calls record_login_event() RPC
-  -> Postgres stores login event
-  -> frontend displays login history
+### Desktop
+
+![Desktop login page](docs/screenshots/desktop.png)
+
+### Mobile
+
+![Mobile login page](docs/screenshots/mobile.png)
+
+## Features
+
+- Google OAuth login with Supabase Auth
+- Login event recording after successful authentication
+- Supabase Postgres table for login history
+- Row Level Security policies on the login table
+- RPC function `record_login_event()` for safe DB writes
+- Frontend table showing user name, email, login time, and user ID
+- Search, refresh, logout, total login count, and unique user count
+- Supabase Edge Function health/API endpoint
+- Netlify and Vercel deployment configuration
+
+## Tech Stack
+
+- Frontend: HTML, CSS, JavaScript
+- Auth: Supabase Auth with Google OAuth
+- Database: Supabase Postgres
+- Security: Supabase Row Level Security
+- Backend logic: Supabase RPC / Postgres function
+- Serverless: Supabase Edge Function
+- Hosting: Netlify
+- Deployment config: `netlify.toml`, `vercel.json`
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+  A[User opens frontend] --> B[Google login button]
+  B --> C[Supabase Auth + Google OAuth]
+  C --> D[Authenticated session]
+  D --> E[Frontend calls record_login_event RPC]
+  E --> F[Supabase Postgres login_events table]
+  F --> G[RLS policies protect access]
+  G --> H[Frontend displays login history]
+  D --> I[Supabase Edge Function health/API]
 ```
 
-## Files
+### Data Flow
+
+1. User opens the Netlify frontend.
+2. User signs in with Google through Supabase Auth.
+3. Supabase returns an authenticated session.
+4. Frontend calls the `record_login_event()` RPC function.
+5. RPC uses `auth.uid()` and `auth.jwt()` to store the correct user details.
+6. Frontend reads `login_events` and displays who logged in and when.
+
+## Project Structure
 
 ```text
+docs/index.html
+  Frontend app hosted on Netlify.
+
+docs/screenshots/
+  Project screenshots for README.
+
 supabase/migrations/20260531000000_create_login_events.sql
-  Database table, indexes, RLS policies, and RPC function.
+  Database table, indexes, RLS policies, permissions, and RPC function.
 
 supabase/functions/login-app/index.ts
-  Supabase Edge Function used as the deployed Edge Function/API part.
-
-docs/index.html
-  Working frontend for Google login and login history.
+  Supabase Edge Function health/API endpoint.
 
 supabase/config.toml
-  Marks login-app as a public Edge Function so the frontend can call it before authentication.
+  Edge Function config, including public access for the function.
 
-.env.example
-  Example Supabase environment variables.
+netlify.toml
+  Netlify deployment config.
 
-SUPABASE_FULLSTACK_ASSESSMENT.md
-  Explanation and planning document for the assessment.
+vercel.json
+  Vercel deployment config.
 ```
 
 ## Database Schema
@@ -53,322 +97,135 @@ Table: `public.login_events`
 | --- | --- | --- |
 | `id` | `uuid` | Primary key |
 | `user_id` | `uuid` | Supabase Auth user ID |
-| `email` | `text` | User email from Google/Auth JWT |
-| `full_name` | `text` | User name from Google metadata |
-| `avatar_url` | `text` | Google profile image URL |
+| `email` | `text` | User email |
+| `full_name` | `text` | Google profile name |
+| `avatar_url` | `text` | Google profile image |
 | `logged_in_at` | `timestamptz` | Login timestamp |
 
-## RLS
+## RLS and RPC
 
 RLS is enabled on `public.login_events`.
 
 Policies:
 
 - Authenticated users can view login events.
-- Authenticated users can insert only records where `user_id = auth.uid()`.
+- Authenticated users can insert only their own records.
 
-This protects the database even though the browser uses a public Supabase key.
+RPC function:
 
-## RPC
-
-Function: `public.record_login_event()`
-
-The frontend calls:
-
-```js
-await supabase.rpc('record_login_event')
+```sql
+public.record_login_event()
 ```
 
-The frontend does not send `user_id`. The database gets the authenticated user from `auth.uid()` and gets user metadata from `auth.jwt()`.
+The frontend does not send a user ID manually. The RPC function uses Supabase Auth helpers:
 
-## Edge Function
-
-Function name: `login-app`
-
-Supabase Edge Functions are used for the Edge Function requirement. The deployed function exposes JSON status and health responses.
-
-Important production note:
-
-Supabase hosted Edge Functions do not support HTML rendering. Supabase's docs say `GET` requests returning `text/html` are rewritten to `text/plain`, which makes the browser show the HTML source. For that reason, the working frontend is in:
-
-```text
-docs/index.html
+```sql
+auth.uid()
+auth.jwt()
 ```
 
-The frontend still uses Supabase Auth, RLS, RPC, and the Supabase database.
-
-The Edge Function uses these default Supabase environment values:
-
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEYS`
-
-Hosted Supabase Edge Functions receive these default values automatically. For local testing, this project also supports `APP_SUPABASE_URL`, `APP_SUPABASE_PUBLISHABLE_KEY`, and `APP_SUPABASE_ANON_KEY`.
-
-The function is public because users must open the login page before they have a JWT:
-
-```toml
-[functions.login-app]
-verify_jwt = false
-```
-
-The database is still protected by Supabase Auth, RLS policies, and the RPC function.
+This prevents users from creating login records for another user.
 
 ## Supabase Setup
 
-### 1. Create a Supabase project
-
-Create a project in the Supabase dashboard and copy:
-
-- Project URL
-- Publishable key or anon key
-- Project ref
-
-### 2. Apply the migration
-
-If your project is linked with Supabase CLI:
-
-```bash
-supabase db push
-```
-
-Or open Supabase SQL Editor and run:
-
-```text
-supabase/migrations/20260531000000_create_login_events.sql
-```
-
-### 3. Enable Google Auth
-
-In Supabase Dashboard:
-
-1. Go to Authentication.
-2. Open Providers.
-3. Enable Google.
-4. Add Google Client ID and Client Secret.
-
-In Google Cloud Console:
-
-- Create an OAuth client ID for a web app.
-- Add your app origin as an authorized JavaScript origin.
-- Add the Supabase Auth callback URL as an authorized redirect URI.
-
-The callback URL is shown in the Supabase Google provider settings and usually looks like:
+1. Create a Supabase project.
+2. Enable Google provider in `Authentication -> Providers`.
+3. Add Google Client ID and Client Secret.
+4. Add this Google redirect URI in Google Cloud:
 
 ```text
 https://<PROJECT_REF>.supabase.co/auth/v1/callback
 ```
 
-### 4. Add Auth redirect URL
-
-In Supabase Dashboard:
-
-1. Go to Authentication.
-2. Open URL Configuration.
-3. Add your deployed frontend URL to Redirect URLs.
-
-For GitHub Pages, the URL will look like:
-
-```text
-https://<github-username>.github.io/<repo-name>/
-```
-
-For local testing, also add:
-
-```text
-http://localhost:4173/
-```
-
-## Edge Function Environment
-
-For hosted deployment, no custom secrets are required because Supabase provides default Edge Function environment variables.
-
-For local testing, create a `.env` file:
-
-```env
-APP_SUPABASE_URL=https://<PROJECT_REF>.supabase.co
-APP_SUPABASE_PUBLISHABLE_KEY=<YOUR_PUBLISHABLE_KEY>
-```
-
-If your project only has an anon key:
-
-```env
-APP_SUPABASE_ANON_KEY=<YOUR_ANON_KEY>
-```
-
-## Local Development
-
-Login and link the Supabase project:
-
-```bash
-supabase login
-supabase link --project-ref <PROJECT_REF>
-```
-
-Serve the function locally:
-
-```bash
-supabase functions serve login-app --env-file .env
-```
-
-If your local CLI does not pick up `supabase/config.toml`, run:
-
-```bash
-supabase functions serve login-app --env-file .env --no-verify-jwt
-```
-
-Open:
-
-```text
-http://localhost:54321/functions/v1/login-app
-```
-
-## Deployment
-
-Deploy the database changes:
-
-```bash
-supabase db push
-```
-
-Deploy the Edge Function:
-
-```bash
-supabase functions deploy login-app
-```
-
-Open:
-
-```text
-https://<PROJECT_REF>.supabase.co/functions/v1/login-app
-```
-
-This Edge Function URL returns JSON. The working app should be hosted from `docs/index.html` using GitHub Pages, Netlify, Vercel, or any static hosting provider.
-
-## Frontend Deployment
-
-### Option A: GitHub Pages
-
-1. Push this project to a GitHub repository.
-2. Open repository Settings.
-3. Go to Pages.
-4. Choose `Deploy from a branch`.
-5. Choose branch `main`.
-6. Choose folder `/docs`.
-7. Save.
-
-Your frontend URL will look like:
-
-```text
-https://<github-username>.github.io/<repo-name>/
-```
-
-Add that URL in Supabase Dashboard:
-
-```text
-Authentication -> URL Configuration -> Redirect URLs
-```
-
-Also add the same URL as an authorized JavaScript origin in Google Cloud OAuth.
-
-### Option B: Netlify
-
-This repository includes `netlify.toml`, so Netlify serves the app from:
-
-```text
-docs/index.html
-```
-
-Deploy steps:
-
-1. Push this repository to GitHub.
-2. Open Netlify.
-3. Click `Add new site`.
-4. Choose `Import an existing project`.
-5. Select the GitHub repository.
-6. Build command can stay empty.
-7. Publish directory should be `docs`.
-8. Deploy.
-
-Then add the Netlify URL to:
-
-- Supabase Auth redirect URLs
-- Google OAuth authorized JavaScript origins
-
-Example:
+5. Add your frontend URL in Supabase Auth redirect URLs:
 
 ```text
 https://supabase-login-audit.netlify.app/
 ```
 
-### Option C: Vercel
+6. Apply the database migration:
 
-This repository includes `vercel.json`, so Vercel serves the app from:
-
-```text
-docs/index.html
+```bash
+supabase login
+supabase link --project-ref <PROJECT_REF>
+supabase db push
 ```
 
-Deploy steps:
+7. Deploy the Edge Function:
 
-1. Push this repository to GitHub.
-2. Import the repository in Vercel.
-3. Choose framework preset `Other`.
-4. Leave build command empty.
-5. Deploy.
-
-Then add the Vercel URL to:
-
-- Supabase Auth redirect URLs
-- Google OAuth authorized JavaScript origins
-
-Example:
-
-```text
-https://supabase-login-audit.vercel.app/
+```bash
+supabase functions deploy login-app --project-ref <PROJECT_REF>
 ```
 
-## Testing Checklist
+## Local Development
 
-- Google login redirects correctly.
-- User returns to the frontend URL after login.
-- A row is inserted into `login_events`.
-- Frontend shows email/name/login time.
-- Logout works.
-- Logged-out users cannot read login events.
-- RPC fails for logged-out users.
-- The browser never receives the service role key.
+Serve the frontend locally:
 
-## Submission Message
-
-```text
-Hi, I have completed the Supabase full stack assessment.
-
-GitHub Repository:
-<repo-link>
-
-Live Demo:
-<frontend-hosting-link>
-
-Supabase Edge Function:
-https://<PROJECT_REF>.supabase.co/functions/v1/login-app/health
-
-Demo Video:
-<video-link>
-
-Implemented:
-- Google login using Supabase Auth
-- Supabase Postgres database for login history
-- RLS policies for protected access
-- RPC function to record login events
-- Supabase Edge Function/API deployment
-- Frontend showing users and login timestamps
+```bash
+python -m http.server 4173 -d docs
 ```
 
-## Official Docs Used
+Open:
 
-- Supabase Auth: https://supabase.com/docs/guides/auth
-- Google login: https://supabase.com/docs/guides/auth/social-login/auth-google
-- Redirect URLs: https://supabase.com/docs/guides/auth/redirect-urls
-- Edge Functions: https://supabase.com/docs/guides/functions
-- Supabase JS OAuth: https://supabase.com/docs/reference/javascript/auth-signinwithoauth
-- Supabase JS RPC: https://supabase.com/docs/reference/javascript/rpc
+```text
+http://localhost:4173/
+```
+
+For local OAuth testing, add this URL to Supabase Auth redirect URLs:
+
+```text
+http://localhost:4173/
+```
+
+Also add this origin in Google OAuth:
+
+```text
+http://localhost:4173
+```
+
+## Deployment
+
+### Netlify
+
+This repo includes `netlify.toml`.
+
+Netlify settings:
+
+```text
+Build command: leave empty
+Publish directory: docs
+```
+
+### Vercel
+
+This repo includes `vercel.json`.
+
+Vercel settings:
+
+```text
+Framework preset: Other
+Build command: leave empty
+Root directory: project root
+```
+
+## Edge Function Note
+
+Supabase hosted Edge Functions are used for the Edge Function/API part of the assessment. Supabase currently rewrites `text/html` GET responses from hosted Edge Functions to `text/plain`, so the working frontend is deployed as a static frontend on Netlify.
+
+The Edge Function health endpoint is:
+
+```text
+https://hzppujksrtwktfmhjoqf.supabase.co/functions/v1/login-app/health
+```
+
+## Security Notes
+
+- The service role key is never used in frontend code.
+- `.env` is ignored by Git.
+- RLS protects database access.
+- RPC records the logged-in user using Supabase Auth context.
+
+## Assessment Coverage
+
+- Task 1: Supabase hands-on with Auth, RLS, Edge Functions, RPC, and database.
+- Task 2: Google login page with Supabase DB recording and frontend login history.
