@@ -272,12 +272,33 @@ Also add the same URL as an authorized JavaScript origin in Google Cloud OAuth.
 
 ### Option B: Netlify
 
-Drag and drop the `docs` folder into Netlify.
+This repository includes `netlify.toml`, so Netlify serves the app from:
+
+```text
+docs/index.html
+```
+
+Deploy steps:
+
+1. Push this repository to GitHub.
+2. Open Netlify.
+3. Click `Add new site`.
+4. Choose `Import an existing project`.
+5. Select the GitHub repository.
+6. Build command can stay empty.
+7. Publish directory should be `docs`.
+8. Deploy.
 
 Then add the Netlify URL to:
 
 - Supabase Auth redirect URLs
 - Google OAuth authorized JavaScript origins
+
+Example:
+
+```text
+https://supabase-login-audit.netlify.app/
+```
 
 ### Option C: Vercel
 
