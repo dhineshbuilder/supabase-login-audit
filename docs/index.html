@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supabase Login Audit</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7f6;
+      --panel: #ffffff;
+      --ink: #16211e;
+      --muted: #62716d;
+      --line: #dce5e1;
+      --accent: #18735f;
+      --accent-dark: #0f5d4d;
+      --soft: #edf5f2;
+      --danger: #9d342e;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #f9fbfa 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .page {
+      width: min(1100px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 26px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .logo {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 8px;
+      background: #143f36;
+      color: #fff;
+      font-weight: 800;
+    }
+
+    h1,
+    h2,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 4px;
+      font-size: 1.55rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 8px;
+      font-size: 1.08rem;
+      letter-spacing: 0;
+    }
+
+    .muted {
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 42px rgba(27, 42, 38, 0.08);
+    }
+
+    .auth {
+      padding: 22px;
+    }
+
+    .auth p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 750;
+    }
+
+    .button:hover {
+      background: var(--accent-dark);
+    }
+
+    .button.secondary {
+      width: auto;
+      min-height: 38px;
+      padding: 0 13px;
+      background: #fff;
+      color: var(--ink);
+      border-color: var(--line);
+      font-size: 0.92rem;
+    }
+
+    .button.secondary:hover {
+      background: var(--soft);
+    }
+
+    .google {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+    }
+
+    .status {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: #fff;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .status.error {
+      color: var(--danger);
+      background: #fff6f5;
+      border-color: rgba(157, 52, 46, 0.28);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .stat {
+      padding: 13px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--soft);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 1.32rem;
+    }
+
+    .userbar {
+      display: none;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--soft);
+      border: 1px solid var(--line);
+    }
+
+    .usertext {
+      min-width: 0;
+      text-align: right;
+    }
+
+    .usertext strong,
+    .usertext span {
+      display: block;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .usertext span {
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .events {
+      overflow: hidden;
+    }
+
+    .events-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .search {
+      height: 38px;
+      min-width: 220px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      padding: 0 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 680px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+
+    th {
+      background: #fbfcfc;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .person {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .person .avatar {
+      width: 34px;
+      height: 34px;
+    }
+
+    .person strong,
+    .person span {
+      display: block;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .person span {
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #e5f3ef;
+      color: var(--accent-dark);
+      font-weight: 750;
+      font-size: 0.8rem;
+    }
+
+    .empty {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    code {
+      color: #315f9d;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+
+    @media (max-width: 830px) {
+      .page {
+        width: min(100% - 22px, 680px);
+        padding: 18px 0;
+      }
+
+      header,
+      .events-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .userbar {
+        justify-content: space-between;
+      }
+
+      .usertext {
+        text-align: left;
+      }
+
+      .tools,
+      .button.secondary,
+      .search {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="brand">
+        <div class="logo">SL</div>
+        <div>
+          <h1>Supabase Login Audit</h1>
+          <p class="muted">Google Auth, RLS, RPC, Edge Function, and Postgres.</p>
+        </div>
+      </div>
+
+      <div id="userBar" class="userbar">
+        <img id="userAvatar" class="avatar" alt="" />
+        <div class="usertext">
+          <strong id="userName"></strong>
+          <span id="userEmail"></span>
+        </div>
+        <button id="signOutButton" class="button secondary" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel auth">
+        <h2 id="authTitle">Sign in</h2>
+        <p id="authText">Use Google to create a Supabase session. After login, the app records the event through a Postgres RPC function.</p>
+
+        <button id="signInButton" class="button" type="button">
+          <svg class="google" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c10 0 19-7.3 19-20 0-1.3-.1-2.4-.4-3.5z"/>
+            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6 29.3 4 24 4 16.2 4 9.5 8.5 6.3 14.7z"/>
+            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.5 39.4 16.1 44 24 44z"/>
+            <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <div id="status" class="status"></div>
+
+        <div class="stats">
+          <div class="stat">
+            <span>Total logins</span>
+            <strong id="totalLogins">0</strong>
+          </div>
+          <div class="stat">
+            <span>Unique users</span>
+            <strong id="uniqueUsers">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel events">
+        <div class="events-head">
+          <div>
+            <h2>Login history</h2>
+            <p class="muted">Records saved in Supabase Postgres and protected by RLS.</p>
+          </div>
+          <div class="tools">
+            <input id="searchInput" class="search" type="search" placeholder="Search name or email" />
+            <button id="refreshButton" class="button secondary" type="button">Refresh</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Status</th>
+                <th>Login time</th>
+                <th>User ID</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty">Sign in to load login history.</div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const SUPABASE_URL = "https://hzppujksrtwktfmhjoqf.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_9SBPa6AUVXZrV9sSDx44OQ_gBkb7JWH";
+    const EDGE_HEALTH_URL = "https://hzppujksrtwktfmhjoqf.supabase.co/functions/v1/login-app/health";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
+
+    const signInButton = document.getElementById("signInButton");
+    const signOutButton = document.getElementById("signOutButton");
+    const refreshButton = document.getElementById("refreshButton");
+    const searchInput = document.getElementById("searchInput");
+    const status = document.getElementById("status");
+    const userBar = document.getElementById("userBar");
+    const userAvatar = document.getElementById("userAvatar");
+    const userName = document.getElementById("userName");
+    const userEmail = document.getElementById("userEmail");
+    const authTitle = document.getElementById("authTitle");
+    const authText = document.getElementById("authText");
+    const totalLogins = document.getElementById("totalLogins");
+    const uniqueUsers = document.getElementById("uniqueUsers");
+    const eventsBody = document.getElementById("eventsBody");
+    const emptyState = document.getElementById("emptyState");
+
+    let session = null;
+    let events = [];
+
+    function showStatus(text, type = "info") {
+      status.textContent = text;
+      status.className = type === "error" ? "status error" : "status";
+      status.style.display = text ? "block" : "none";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function avatarFallback(value) {
+      const initial = (value || "?").trim().slice(0, 1).toUpperCase();
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" rx="40" fill="%23edf5f2"/><text x="40" y="49" text-anchor="middle" font-family="Arial" font-size="28" font-weight="700" fill="%2318735f">' + initial + '</text></svg>';
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+
+    function displayName(user) {
+      return user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Signed-in user";
+    }
+
+    function avatarUrl(user) {
+      return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "";
+    }
+
+    function formatDate(value) {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value));
+    }
+
+    function renderStats() {
+      totalLogins.textContent = String(events.length);
+      uniqueUsers.textContent = String(new Set(events.map((event) => event.user_id)).size);
+    }
+
+    function renderLoggedOut() {
+      session = null;
+      events = [];
+      userBar.style.display = "none";
+      signInButton.style.display = "inline-flex";
+      authTitle.textContent = "Sign in";
+      authText.textContent = "Use Google to create a Supabase session. After login, the app records the event through a Postgres RPC function.";
+      eventsBody.innerHTML = "";
+      emptyState.textContent = "Sign in to load login history.";
+      emptyState.style.display = "block";
+      renderStats();
+    }
+
+    function renderLoggedIn(activeSession) {
+      session = activeSession;
+      const user = activeSession.user;
+      const name = displayName(user);
+
+      userName.textContent = name;
+      userEmail.textContent = user.email || "";
+      userAvatar.src = avatarUrl(user) || avatarFallback(name);
+      userBar.style.display = "flex";
+      signInButton.style.display = "none";
+      authTitle.textContent = "Authenticated";
+      authText.textContent = "Your login was recorded through RPC. The table shows the login events saved in Postgres.";
+    }
+
+    function renderEvents() {
+      const query = searchInput.value.trim().toLowerCase();
+      const visibleEvents = query
+        ? events.filter((event) => {
+            return String(event.full_name || "").toLowerCase().includes(query) ||
+              String(event.email || "").toLowerCase().includes(query);
+          })
+        : events;
+
+      eventsBody.innerHTML = "";
+
+      if (!session) {
+        emptyState.textContent = "Sign in to load login history.";
+        emptyState.style.display = "block";
+        renderStats();
+        return;
+      }
+
+      if (visibleEvents.length === 0) {
+        emptyState.textContent = query ? "No login events match this search." : "No login events recorded yet.";
+        emptyState.style.display = "block";
+        renderStats();
+        return;
+      }
+
+      emptyState.style.display = "none";
+
+      for (const event of visibleEvents) {
+        const name = event.full_name || event.email || "Unknown user";
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>
+            <div class="person">
+              <img class="avatar" alt="" src="${event.avatar_url || avatarFallback(name)}" />
+              <div>
+                <strong>${escapeHtml(name)}</strong>
+                <span>${escapeHtml(event.email || "No email")}</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge">Recorded</span></td>
+          <td>${formatDate(event.logged_in_at)}</td>
+          <td><code>${escapeHtml(String(event.user_id).slice(0, 8))}...</code></td>
+        `;
+        eventsBody.appendChild(row);
+      }
+
+      renderStats();
+    }
+
+    async function recordLoginOnce(activeSession) {
+      const sessionKey = "login-recorded-" + activeSession.user.id + "-" + activeSession.access_token.slice(-16);
+
+      if (sessionStorage.getItem(sessionKey)) {
+        return;
+      }
+
+      const { error } = await supabase.rpc("record_login_event");
+
+      if (error) {
+        throw error;
+      }
+
+      sessionStorage.setItem(sessionKey, "true");
+    }
+
+    async function loadEvents() {
+      refreshButton.disabled = true;
+
+      const { data, error } = await supabase
+        .from("login_events")
+        .select("id, user_id, email, full_name, avatar_url, logged_in_at")
+        .order("logged_in_at", { ascending: false })
+        .limit(100);
+
+      refreshButton.disabled = false;
+
+      if (error) {
+        showStatus(error.message, "error");
+        return;
+      }
+
+      events = data || [];
+      renderEvents();
+    }
+
+    async function checkEdgeFunction() {
+      try {
+        await fetch(EDGE_HEALTH_URL, { mode: "cors" });
+      } catch {
+        // The core assessment still works without this status check.
+      }
+    }
+
+    async function handleSession(activeSession, shouldRecord) {
+      if (!activeSession) {
+        renderLoggedOut();
+        return;
+      }
+
+      renderLoggedIn(activeSession);
+
+      try {
+        if (shouldRecord) {
+          await recordLoginOnce(activeSession);
+        }
+        await loadEvents();
+        showStatus("");
+      } catch (error) {
+        showStatus(error.message || "Something went wrong.", "error");
+      }
+    }
+
+    signInButton.addEventListener("click", async () => {
+      signInButton.disabled = true;
+      showStatus("");
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + window.location.pathname,
+        },
+      });
+
+      if (error) {
+        signInButton.disabled = false;
+        showStatus(error.message, "error");
+      }
+    });
+
+    signOutButton.addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      renderLoggedOut();
+    });
+
+    refreshButton.addEventListener("click", loadEvents);
+    searchInput.addEventListener("input", renderEvents);
+
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      showStatus(error.message, "error");
+    }
+
+    await checkEdgeFunction();
+    await handleSession(data.session, Boolean(data.session));
+
+    supabase.auth.onAuthStateChange(async (event, activeSession) => {
+      if (event === "SIGNED_IN") {
+        await handleSession(activeSession, true);
+      }
+
+      if (event === "SIGNED_OUT") {
+        renderLoggedOut();
+      }
+    });
+  </script>
+</body>
+</html>

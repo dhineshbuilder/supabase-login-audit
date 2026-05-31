@@ -1,0 +1,4 @@
+project_id = "supabase-login-audit"
+
+[functions.login-app]
+verify_jwt = false
